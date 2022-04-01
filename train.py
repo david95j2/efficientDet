@@ -16,18 +16,18 @@ def get_args():
     parser = argparse.ArgumentParser(
         "EfficientDet: Scalable and Efficient Object Detection implementation by Signatrix GmbH")
     parser.add_argument("--image_size", type=int, default=512, help="The common width and height for all images")
-    parser.add_argument("--batch_size", type=int, default=8, help="The number of images per batch")
+    parser.add_argument("--batch_size", type=int, default=16, help="The number of images per batch")
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument('--alpha', type=float, default=0.25)
     parser.add_argument('--gamma', type=float, default=1.5)
-    parser.add_argument("--num_epochs", type=int, default=500)
+    parser.add_argument("--num_epochs", type=int, default=25)
     parser.add_argument("--test_interval", type=int, default=1, help="Number of epoches between testing phases")
     parser.add_argument("--es_min_delta", type=float, default=0.0,
                         help="Early stopping's parameter: minimum change loss to qualify as an improvement")
     parser.add_argument("--es_patience", type=int, default=0,
                         help="Early stopping's parameter: number of epochs with no improvement after which training will be stopped. Set to 0 to disable this technique.")
-    parser.add_argument("--data_path", type=str, default="data/COCO", help="the root folder of dataset")
-    parser.add_argument("--log_path", type=str, default="tensorboard/signatrix_efficientdet_coco")
+    parser.add_argument("--data_path", type=str, default="data/coco_custom", help="the root folder of dataset")
+    parser.add_argument("--log_path", type=str, default="tensorboard/signatrix_efficientdet_custom")
     parser.add_argument("--saved_path", type=str, default="trained_models")
 
     args = parser.parse_args()
@@ -36,6 +36,7 @@ def get_args():
 
 def train(opt):
     num_gpus = 1
+    opt.data_path = os.path.join(os.path.expanduser("~/Desktop/joo"),opt.data_path)
     if torch.cuda.is_available():
         num_gpus = torch.cuda.device_count()
         torch.cuda.manual_seed(123)
@@ -54,15 +55,15 @@ def train(opt):
                    "collate_fn": collater,
                    "num_workers": 12}
 
-    training_set = CocoDataset(root_dir=opt.data_path, set="train2017",
+    training_set = CocoDataset(root_dir=opt.data_path, set="train2022",
                                transform=transforms.Compose([Normalizer(), Augmenter(), Resizer()]))
     training_generator = DataLoader(training_set, **training_params)
 
-    test_set = CocoDataset(root_dir=opt.data_path, set="val2017",
+    test_set = CocoDataset(root_dir=opt.data_path, set="val2022",
                            transform=transforms.Compose([Normalizer(), Resizer()]))
     test_generator = DataLoader(test_set, **test_params)
 
-    model = EfficientDet(num_classes=training_set.num_classes())
+    model = EfficientDet(num_classes=training_set.total_classes)
 
 
     if os.path.isdir(opt.log_path):
@@ -87,10 +88,7 @@ def train(opt):
     num_iter_per_epoch = len(training_generator)
     for epoch in range(opt.num_epochs):
         model.train()
-        # if torch.cuda.is_available():
-        #     model.module.freeze_bn()
-        # else:
-        #     model.freeze_bn()
+
         epoch_loss = []
         progress_bar = tqdm(training_generator)
         for iter, data in enumerate(progress_bar):
@@ -104,10 +102,11 @@ def train(opt):
                 cls_loss = cls_loss.mean()
                 reg_loss = reg_loss.mean()
                 loss = cls_loss + reg_loss
-                if loss == 0:
-                    continue
+                if loss == 0:continue
                 loss.backward()
+                
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
+                
                 optimizer.step()
                 epoch_loss.append(float(loss))
                 total_loss = np.mean(epoch_loss)
@@ -150,14 +149,14 @@ def train(opt):
                 'Epoch: {}/{}. Classification loss: {:1.5f}. Regression loss: {:1.5f}. Total loss: {:1.5f}'.format(
                     epoch + 1, opt.num_epochs, cls_loss, reg_loss,
                     np.mean(loss)))
-            writer.add_scalar('Test/Total_loss', loss, epoch)
-            writer.add_scalar('Test/Regression_loss', reg_loss, epoch)
-            writer.add_scalar('Test/Classfication_loss (focal loss)', cls_loss, epoch)
+            writer.add_scalar('Val/Total_loss', loss, epoch)
+            writer.add_scalar('Val/Regression_loss', reg_loss, epoch)
+            writer.add_scalar('Val/Classfication_loss (focal loss)', cls_loss, epoch)
 
             if loss + opt.es_min_delta < best_loss:
                 best_loss = loss
                 best_epoch = epoch
-                torch.save(model, os.path.join(opt.saved_path, "signatrix_efficientdet_coco.pth"))
+                torch.save(model, os.path.join(opt.saved_path, "pth/signatrix_efficientdet_custom.pth"))
 
                 dummy_input = torch.rand(opt.batch_size, 3, 512, 512)
                 if torch.cuda.is_available():
@@ -166,14 +165,14 @@ def train(opt):
                     model.module.backbone_net.model.set_swish(memory_efficient=False)
 
                     torch.onnx.export(model.module, dummy_input,
-                                      os.path.join(opt.saved_path, "signatrix_efficientdet_coco.onnx"),
+                                      os.path.join(opt.saved_path, "onnx/signatrix_efficientdet_custom.onnx"),
                                       verbose=False)
                     model.module.backbone_net.model.set_swish(memory_efficient=True)
                 else:
                     model.backbone_net.model.set_swish(memory_efficient=False)
 
                     torch.onnx.export(model, dummy_input,
-                                      os.path.join(opt.saved_path, "signatrix_efficientdet_coco.onnx"),
+                                      os.path.join(opt.saved_path, "onnx/signatrix_efficientdet_custom.onnx"),
                                       verbose=False)
                     model.backbone_net.model.set_swish(memory_efficient=True)
 

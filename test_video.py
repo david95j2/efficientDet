@@ -11,7 +11,7 @@ def get_args():
     parser.add_argument("--image_size", type=int, default=512, help="The common width and height for all images")
     parser.add_argument("--cls_threshold", type=float, default=0.5)
     parser.add_argument("--nms_threshold", type=float, default=0.5)
-    parser.add_argument("--pretrained_model", type=str, default="trained_models/signatrix_efficientdet_coco.pth")
+    parser.add_argument("--pretrained_model", type=str, default="trained_models/pth/signatrix_efficientdet_custom.pth")
     parser.add_argument("--input", type=str, default="test_videos/input.mp4")
     parser.add_argument("--output", type=str, default="test_videos/output.mp4")
 

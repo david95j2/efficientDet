@@ -12,10 +12,10 @@ def get_args():
     parser = argparse.ArgumentParser(
         "EfficientDet: Scalable and Efficient Object Detection implementation by Signatrix GmbH")
     parser.add_argument("--image_size", type=int, default=512, help="The common width and height for all images")
-    parser.add_argument("--data_path", type=str, default="data/COCO", help="the root folder of dataset")
+    parser.add_argument("--data_path", type=str, default="data/coco_custom/", help="the root folder of dataset")
     parser.add_argument("--cls_threshold", type=float, default=0.5)
     parser.add_argument("--nms_threshold", type=float, default=0.5)
-    parser.add_argument("--pretrained_model", type=str, default="trained_models/signatrix_efficientdet_coco.pth")
+    parser.add_argument("--pretrained_model", type=str, default="trained_models/pth/signatrix_efficientdet_custom.pth")
     parser.add_argument("--output", type=str, default="predictions")
     args = parser.parse_args()
     return args
@@ -23,9 +23,10 @@ def get_args():
 
 
 def test(opt):
+    opt.data_path = os.path.join(os.path.expanduser("~/Desktop/joo"),opt.data_path)
     model = torch.load(opt.pretrained_model).module
     model.cuda()
-    dataset = CocoDataset(opt.data_path, set='val2017', transform=transforms.Compose([Normalizer(), Resizer()]))
+    dataset = CocoDataset(opt.data_path, set='test2022', transform=transforms.Compose([Normalizer(), Resizer()]))
 
     if os.path.isdir(opt.output):
         shutil.rmtree(opt.output)
@@ -40,7 +41,7 @@ def test(opt):
 
         if boxes.shape[0] > 0:
             image_info = dataset.coco.loadImgs(dataset.image_ids[index])[0]
-            path = os.path.join(dataset.root_dir, 'images', dataset.set_name, image_info['file_name'])
+            path = os.path.join(dataset.root_dir, dataset.set_name, image_info['file_name'])
             output_image = cv2.imread(path)
 
             for box_id in range(boxes.shape[0]):
