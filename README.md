@@ -10,5 +10,7 @@ but 속도 느림..
 metric 평가가 정확한지 다시 확인
 
 segmentation 에 efficientnet
+deeplab semantic segmentation으로
+
 
 결과정리
