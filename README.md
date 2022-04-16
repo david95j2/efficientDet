@@ -14,3 +14,6 @@ deeplab semantic segmentation으로
 cv2 image 처리
 
 결과정리
+
+
+git error 이제 알아챔...
